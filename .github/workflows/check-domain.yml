@@ -1,0 +1,34 @@
+name: Check Commit Email Domain
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  check-email-domain:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit author emails
+        run: |
+          ALLOWED_DOMAIN="@gmail.com"
+
+          echo "Checking commit emails..."
+
+          for email in $(git log origin/master..HEAD --format='%ae'); do
+            echo "Commit email: $email"
+
+            if [[ "$email" != *"$ALLOWED_DOMAIN" ]]; then
+              echo "❌ Commit email $email is not allowed."
+              echo "Only emails ending with $ALLOWED_DOMAIN are allowed."
+              exit 1
+            fi
+          done
+
+          echo "✅ All commit emails are allowed."
