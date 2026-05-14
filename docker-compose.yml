@@ -1,0 +1,50 @@
+# Web UI: FRONTEND_PUBLISH_PORT (default 8080). API JSON: API_PUBLISH_PORT (default 5001) under /api/…
+# DB port 5432 is PostgreSQL (not HTTP) — use pgAdmin, psql, or DBeaver; a browser will show ERR_EMPTY_RESPONSE.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-eventdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "${POSTGRES_PUBLISH_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    environment:
+      PORT: "5001"
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production_use_a_long_random_string}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-eventdb}
+    ports:
+      - "${API_PUBLISH_PORT:-5001}:5001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    environment:
+      # URL the browser uses to reach the API (host machine + published API port by default).
+      API_BASE: ${API_BASE:-http://localhost:5001/api}
+    ports:
+      - "${FRONTEND_PUBLISH_PORT:-8080}:80"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

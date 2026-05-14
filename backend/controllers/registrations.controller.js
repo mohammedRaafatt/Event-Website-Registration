@@ -142,7 +142,7 @@ exports.create = async (req, res) => {
         publicRef = candidate;
         break;
       } catch (err) {
-        if (err && err.code === 'ER_DUP_ENTRY') continue;
+        if (err && (err.code === 'ER_DUP_ENTRY' || err.code === '23505')) continue;
         throw err;
       }
     }

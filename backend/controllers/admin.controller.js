@@ -68,8 +68,8 @@ exports.getOverview = async (req, res) => {
          e.starts_at,
          e.capacity,
          e.published,
-         CAST(COALESCE(SUM(r.quantity), 0) AS UNSIGNED) AS sold,
-         CAST(e.capacity - COALESCE(SUM(r.quantity), 0) AS SIGNED) AS spots_remaining
+         CAST(COALESCE(SUM(r.quantity), 0) AS BIGINT) AS sold,
+         CAST(e.capacity - COALESCE(SUM(r.quantity), 0) AS INTEGER) AS spots_remaining
        FROM events e
        LEFT JOIN registrations r ON r.event_id = e.id AND r.status = 'confirmed'
        GROUP BY e.id, e.slug, e.title, e.starts_at, e.capacity, e.published
@@ -149,12 +149,12 @@ exports.createEvent = async (req, res) => {
   try {
     const [result] = await pool.promise().query(
       `INSERT INTO events (slug, title, summary, description, location, starts_at, ends_at, capacity, price_cents, published)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       [slug, title, summary, description, location, starts, ends, capacity, priceCents, published]
     );
-    return res.status(201).json({ id: result.insertId, slug });
+    return res.status(201).json({ id: result[0].id, slug });
   } catch (err) {
-    if (err && err.code === 'ER_DUP_ENTRY') {
+    if (err && (err.code === 'ER_DUP_ENTRY' || err.code === '23505')) {
       return res.status(409).json({ message: 'Slug already in use — pick another slug' });
     }
     console.error('[admin] createEvent', err && err.message ? err.message : err);
@@ -238,7 +238,7 @@ exports.updateEvent = async (req, res) => {
     if (result.affectedRows === 0) return res.status(404).json({ message: 'Event not found' });
     return res.json({ message: 'Event updated' });
   } catch (err) {
-    if (err && err.code === 'ER_DUP_ENTRY') {
+    if (err && (err.code === 'ER_DUP_ENTRY' || err.code === '23505')) {
       return res.status(409).json({ message: 'Slug conflict' });
     }
     return res.status(500).json({ message: 'Could not update event' });

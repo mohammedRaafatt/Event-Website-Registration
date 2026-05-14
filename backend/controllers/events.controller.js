@@ -34,7 +34,7 @@ const publicFields = `
     e.capacity - COALESCE((
       SELECT SUM(r.quantity) FROM registrations r
       WHERE r.event_id = e.id AND r.status = 'confirmed'
-    ), 0) AS SIGNED
+    ), 0) AS INTEGER
   ) AS spots_remaining
 `;
 

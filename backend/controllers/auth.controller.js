@@ -64,11 +64,11 @@ exports.register = async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, 10);
     const [result] = await pool.promise().query(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?) RETURNING id',
       [trimmedName, trimmedEmail, hash, 'attendee']
     );
 
-    const userId = result.insertId;
+    const userId = result[0].id;
     const token = jwt.sign(
       {
         userId,
@@ -86,7 +86,7 @@ exports.register = async (req, res) => {
       user: { id: userId, name: trimmedName, email: trimmedEmail, role: 'attendee' },
     });
   } catch (err) {
-    if (err && err.code === 'ER_DUP_ENTRY') {
+    if (err && (err.code === 'ER_DUP_ENTRY' || err.code === '23505')) {
       return res.status(409).json({ message: 'An account with this email already exists' });
     }
     return res.status(500).json({ message: 'Registration failed' });
